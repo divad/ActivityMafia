@@ -26,6 +26,13 @@ import io.evad.mineactivity.mafia.characters.*;
 import io.evad.mineactivity.mafia.enums.*;
 import io.evad.mineactivity.mafia.timeouts.*;
 
+
+/*
+ * TODO:
+ * add vote stage
+ * death messages
+ */
+
 public class ActivityMafia extends JavaPlugin implements Listener 
 {
 	private GameStage gameStage           = GameStage.NONE;
@@ -52,7 +59,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	public ArrayList <MafiaCharacter> characters = new ArrayList<MafiaCharacter>();
 	
 	// Voting
-	ScoreboardManager manager = Bukkit.getScoreboardManager();
+	ScoreboardManager manager = null;
 	Scoreboard board          = null;
 	Objective objective       = null;
 	
@@ -63,7 +70,8 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	HashMap<Gamer, Integer> voteCounter = null;
 	
 	// chat prefix 
-	public String chatPrefix = ChatColor.GRAY + "[" + ChatColor.GOLD + "Mafia" + ChatColor.GRAY + "] " + ChatColor.AQUA;
+	public ChatColor textColour = ChatColor.AQUA;
+	public String chatPrefix = ChatColor.GRAY + "[" + ChatColor.GOLD + "Mafia" + ChatColor.GRAY + "] " + textColour;
 	
 	/***************************************************************************************************************************************************/
 	
@@ -88,8 +96,9 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	
 	public void wipeScoreboard()
 	{
-		this.board = manager.getNewScoreboard();
-		this.objective = board.registerNewObjective("mafia", "dummy");
+		this.manager   = Bukkit.getScoreboardManager();
+		this.board     = this.manager.getNewScoreboard();
+		this.objective = this.board.registerNewObjective("mafia", "dummy");
 		this.objective.setDisplaySlot(DisplaySlot.SIDEBAR);
 		this.objective.setDisplayName("Players alive");		
 	}
@@ -100,10 +109,15 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	@EventHandler
     public void onQuit(PlayerQuitEvent event)
 	{
-        Player player = event.getPlayer();
-        
-        getLogger().info("Player " + player.getName() + " left!");
-        
+		this.onPlayerQuit(event.getPlayer());
+	}
+	
+	/*
+	 * Handler for when a player quits (goes offline), is kicked/banned (goes offline)
+	 * or asks to leave the game	
+	 */
+    public void onPlayerQuit(Player player)
+	{	
         if (!(this.gameStage == GameStage.NONE))
         {
        		Iterator<Gamer> i = this.players.iterator();
@@ -115,7 +129,11 @@ public class ActivityMafia extends JavaPlugin implements Listener
        			{
        	        	if (this.gameStage == GameStage.REGISTER)
        	        	{
+       	        		// remove them from the list of players
        	        		i.remove();
+       	        		
+       	        		// remove them from the scoreboard
+       	        		this.board.resetScores(gamer.player.getName());
        	        	}
        	        	else
        	        	{
@@ -128,8 +146,17 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	       	        		{
 	       	        			this.isGameFinished();
 	       	        		}
-       	        		}
+       	        		}    	        		
        	        	}
+       	        	
+   	        		// if they're still online (i.e. they did /z quit) then hide the scores from them
+       	        	// and tell them they left
+   					if (gamer.player.isOnline())
+   					{
+   						gamer.player.setScoreboard(this.manager.getMainScoreboard());
+   						
+   						gamer.player.sendMessage(this.chatPrefix + " You left the game!");   					
+   					}       	        	
         		}     		
         	}
         }
@@ -141,7 +168,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	private void markPlayerAsDead(Gamer gamer)
 	{
 		// message people to say they died
-		this.messageAllPlayers(gamer.player.getName() + " (" + gamer.character.name + ") died");
+		this.messageAllPlayers(gamer.player.getName() + " (" + gamer.character.name + ") " + ChatColor.RED + "died");
 		
 		// remove them from the scoreboard objective
 		this.board.resetScores(gamer.player.getName());
@@ -323,7 +350,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 						
 						if (args[0].equals("quit") || args[0].equals("leave") || args[0].equals("exit"))
 						{
-							// TODO IMPLEMENT PLAYER LEAVING
+							this.onPlayerQuit(gamer.player);
 						}
 						else if (args[0].equalsIgnoreCase("accuse"))
 						{
@@ -436,7 +463,10 @@ public class ActivityMafia extends JavaPlugin implements Listener
 				for (int i = 0; i < this.players.size(); i++)
 				{
 					this.players.get(i).player.sendMessage(this.chatPrefix + "Not enough players joined the game, sorry!");
+					this.players.get(i).player.setScoreboard(this.manager.getMainScoreboard());
+					this.wipeScoreboard();
 				}
+				
 				
 				this.gameStage = GameStage.NONE;
 				this.players = new ArrayList<Gamer>();
@@ -660,7 +690,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					{
 						gamer.setActionPerformed();
 						targetGamer.attack();
-						this.nightMessages.add(gamer.character.name + " attacked " + targetPlayer.getName());
+						this.nightMessages.add(gamer.character.name + ChatColor.YELLOW + " attacked " + this.textColour + targetPlayer.getName());
 						gamer.player.sendMessage(this.chatPrefix + "You have attacked " + targetPlayer.getName());
 						this.checkIfNightIsOver();							
 						return true;
@@ -677,7 +707,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					{
 						gamer.setActionPerformed();
 						targetGamer.heal();
-						this.nightMessages.add(gamer.character.name + " healed " + targetPlayer.getName());
+						this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " healed " + this.textColour + targetPlayer.getName());
 						gamer.player.sendMessage(this.chatPrefix + "You have healed " + targetPlayer.getName());
 						this.checkIfNightIsOver();		
 						return true;
@@ -815,8 +845,12 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					getLogger().info(":: onPlayerAccuse: Reducing score of " + previousTargetGamer.player.getName());
 					
 					// Change the scoreboard view
-					Score score = objective.getScore(previousTargetGamer.player.getName());
-					score.setScore(score.getScore() - 1);
+					// but only if the player is still alive (they could quit mid vote)
+					if (previousTargetGamer.isAlive())
+					{
+						Score score = objective.getScore(previousTargetGamer.player.getName());
+						score.setScore(score.getScore() - 1);
+					}
 					
 					// Change our tracker of votes
 					this.voteCounter.put(previousTargetGamer, new Integer(this.voteCounter.get(previousTargetGamer).intValue() - 1));
