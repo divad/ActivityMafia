@@ -1,0 +1,8 @@
+name: ActivityMafia
+main: io.evad.mineactivity.mafia.ActivityMafia
+version: 1.0.35
+commands:
+  mafia:
+    description: The mafia command
+    usage: /mafia [command]
+    aliases: [maf, z]
