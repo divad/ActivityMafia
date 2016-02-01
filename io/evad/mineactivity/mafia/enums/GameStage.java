@@ -16,8 +16,8 @@ public enum GameStage
 	DISCUSS,         /* players discuss who is evil and whatnot */ /* DONE */
 	END_DISCUSS,    /* game sets up nominations */ /* DONE */
 
-	NOMINATE,        /* players may nominate others to be put on the the cross */
-	END_NOMINATE,   /* game calculates if a vote will happen */        /* NOT YET IMPLEMENTED */
+	NOMINATE,        /* players may nominate others to be put on the the cross */ /* DONE */
+	END_NOMINATE,   /* game calculates if a vote will happen */        /* DONE */
 
 	VOTE,            /* players may vote yes or no (optional phase) */ /* NOT YET IMPLEMENTED */
 	END_VOTE,       /* votes are tallied (optional phase) ISGAMEOVER*/ /* NOT YET IMPLEMENTED */

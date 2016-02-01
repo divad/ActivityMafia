@@ -29,8 +29,10 @@ import io.evad.mineactivity.mafia.timeouts.*;
 
 /*
  * TODO:
- * add vote stage
  * death messages
+ * moar players
+ * moar roles
+ * double mafia
  */
 
 public class ActivityMafia extends JavaPlugin implements Listener 
@@ -38,16 +40,16 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	private GameStage gameStage           = GameStage.NONE;
 	private final int maxPlayers          = 10;  // we only support 10 in the code atm
 	private final int registrationTimeout = 1200; // 1200 is 60 seconds. 
-	private final int nightLength         = 1200; // 2 minutes
-	private final int discussLength       = 600; // 1 minute is 1200
-	private final int nominateLength      = 1200; // 1 minute is 1200
-	//private final int voteLength          = 1200; // 1 minute
+	private final int nightLength         = 1000; // 2 minutes
+	private final int discussLength       = 500; // 1 minute is 1200
+	private final int nominateLength      = 1000; // 1 minute is 1200
+	private final int voteLength          = 600; // 1 minute
 	
 	// timeouts
 	private BukkitTask nightTimeout    = null;
 	private BukkitTask discussTimeout  = null;
 	private BukkitTask nominateTimeout = null;
-	// private BukkitTask voteTimeout = null;
+	private BukkitTask voteTimeout = null;
 	
 	// night time log
 	private ArrayList<String> nightMessages = new ArrayList<String>();
@@ -58,19 +60,26 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	/* list of characters */
 	public ArrayList <MafiaCharacter> characters = new ArrayList<MafiaCharacter>();
 	
-	// Voting
+	// accuse/nominate/vote
 	ScoreboardManager manager = null;
 	Scoreboard board          = null;
 	Objective objective       = null;
+	Scoreboard voteBoard      = null;
+	Objective voteObjective   = null;
+	
+	// Accusation tracking
+	HashMap<Gamer, Gamer> accuseMap = null;
+	HashMap<Gamer, Integer> accusationCounter = null;
 	
 	// Vote tracking
-	HashMap<Gamer, Gamer> accuseMap = null;
-	
-	///HashMap<Gamer, Boolean> voteMap = null;
-	HashMap<Gamer, Integer> voteCounter = null;
+	HashMap<Gamer, Boolean> voteMap = null;
+	int voteYes = 0;
+	int  voteNo = 0;
+	Gamer chosenGamer = null;
 	
 	// chat prefix 
 	public ChatColor textColour = ChatColor.AQUA;
+	public ChatColor winAnnounceColour = ChatColor.GOLD;
 	public String chatPrefix = ChatColor.GRAY + "[" + ChatColor.GOLD + "Mafia" + ChatColor.GRAY + "] " + textColour;
 	
 	/***************************************************************************************************************************************************/
@@ -213,23 +222,22 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		
 		if (town > 0 && mafia == 0 && maniac == 0)
 		{
-			this.messageAllPlayers("Town won! The citizens rejoice!");
+			this.messageAllPlayers(this.winAnnounceColour + "Town won! The citizens rejoice!");
 			end = true;
 		}
 		else if (town == 0 && mafia > 0 && maniac == 0)
 		{
-			this.messageAllPlayers("The mafia won! Emperor Palpatine is pleased.");
-			this.messageAllPlayers("");
+			this.messageAllPlayers(this.winAnnounceColour + "The mafia won! Emperor Palpatine is pleased.");
 			end = true;
 		}
 		else if (town == 0 && mafia == 0 && maniac > 0)
 		{
-			this.messageAllPlayers("The maniac won! The maniac soon begins to feel lonely and sad.");
+			this.messageAllPlayers(this.winAnnounceColour + "The maniac won! The maniac soon begins to feel lonely and sad.");
 			end = true;
 		}
 		else if (town == 0 && mafia == 0 && maniac == 0)
 		{
-			this.messageAllPlayers("Everybody is dead. Herobrine won!");
+			this.messageAllPlayers(this.winAnnounceColour + "Everybody is dead. Herobrine won!");
 			end = true;
 		}
 		else if (playersAlive == 2)
@@ -238,17 +246,16 @@ public class ActivityMafia extends JavaPlugin implements Listener
 
 			if (mafia > 0 && maniac <= 0)
 			{
-				this.messageAllPlayers("The mafia won! Khan is pleased. The Mafia turns the last townsperson evil.");
+				this.messageAllPlayers(this.winAnnounceColour + "The mafia won! Khan is pleased. The Mafia turns the last townsperson evil.");
 			}
 			else if (maniac > 0 && mafia <= 0)
 			{
-				this.messageAllPlayers("The maniac won! They copulate with the last townsperson and have maniac babies");
+				this.messageAllPlayers(this.winAnnounceColour + "The maniac won! They copulate with the last townsperson and have maniac babies");
 			}
 			else
 			{
-				this.messageAllPlayers("Only the mafia and the maniac survive! They eye each other suspiciously. #nohomo");
+				this.messageAllPlayers(this.winAnnounceColour + "Only the mafia and the maniac survive! They eye each other suspiciously. #nohomo");
 			}
-						
 		}
 		
 		
@@ -269,6 +276,10 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			{
 				this.nominateTimeout.cancel();
 			}
+			if (this.voteTimeout != null)
+			{
+				this.voteTimeout.cancel();
+			}			
 			
 			this.gameStage = GameStage.NONE;
 			
@@ -357,6 +368,16 @@ public class ActivityMafia extends JavaPlugin implements Listener
 							this.onPlayerAccuse(gamer,args);
 							return true;
 						}
+						else if (args[0].equalsIgnoreCase("yes"))
+						{
+							this.onPlayerVote(gamer,true);
+							return true;
+						}
+						else if (args[0].equalsIgnoreCase("no"))
+						{
+							this.onPlayerVote(gamer,false);
+							return true;
+						}						
 						else
 						{
 							if (args.length == 2)
@@ -491,19 +512,9 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					Gamer gamer = roles.get(i);
 					gamer.character = this.characters.get(i);
 					gamer.player.sendMessage(this.chatPrefix + "You have been assigned the role of: " + ChatColor.YELLOW + gamer.character.getName());
-					gamer.player.sendMessage(this.chatPrefix + gamer.character.desc);
 					charactersString += " " + gamer.character.name;
 					getLogger().info("Player " + gamer.player.getName() + " was assigned role " + gamer.character.name);
 				}
-				
-				// Build string of players who are playing
-				/*String playersString = "Players:";
-				for (int i = 0; i < players.size(); i++)
-				{
-					Gamer gamer = players.get(i);
-					playersString += " " + gamer.player.getName();
-					
-				}*/				
 				
 				// Broadcast who is playing and what the characters are!
 				for (int i = 0; i < players.size(); i++)
@@ -765,7 +776,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		
 		/* Prepare for accusations */
 		this.accuseMap   = new HashMap<Gamer, Gamer>();
-		this.voteCounter = new HashMap<Gamer, Integer>();
+		this.accusationCounter = new HashMap<Gamer, Integer>();
 		
 		for (int i = 0; i < this.players.size(); i++)
 		{
@@ -773,7 +784,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			if (gamer.isAlive())
 			{
 				// Create a zero score for the player in our vote counter
-				this.voteCounter.put(gamer, new Integer(0));
+				this.accusationCounter.put(gamer, new Integer(0));
 			}
 		}			
 	}
@@ -853,7 +864,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					}
 					
 					// Change our tracker of votes
-					this.voteCounter.put(previousTargetGamer, new Integer(this.voteCounter.get(previousTargetGamer).intValue() - 1));
+					this.accusationCounter.put(previousTargetGamer, new Integer(this.accusationCounter.get(previousTargetGamer).intValue() - 1));
 				}
 				else
 				{
@@ -876,7 +887,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			this.messageAllPlayers(gamer.player.getName() + " accused " + targetGamer.player.getName());	
 			
 			// Record the total votes for the target in our map
-			this.voteCounter.put(targetGamer, new Integer(this.voteCounter.get(targetGamer).intValue() + 1));
+			this.accusationCounter.put(targetGamer, new Integer(this.accusationCounter.get(targetGamer).intValue() + 1));
 		}
 	}
 	
@@ -892,7 +903,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			int topScore = 0;
 			boolean sameScore = false;
 			
-			for (Map.Entry<Gamer, Integer> entry : this.voteCounter.entrySet())
+			for (Map.Entry<Gamer, Integer> entry : this.accusationCounter.entrySet())
 			{
 				Gamer tGamer = entry.getKey();
 				int score    = entry.getValue().intValue();
@@ -914,27 +925,150 @@ public class ActivityMafia extends JavaPlugin implements Listener
 				// Somebody might have been chosen
 				if (!sameScore)
 				{
-					// we can kill the person!
-					// TODO do a vote instead...
-					this.messageAllPlayers("The citizens have chosen to put " + topGamer.player.getName() + " to death!");
-					topGamer.kill();
-					this.markPlayerAsDead(topGamer);
-					
-					if (this.isGameFinished())
-					{
-						return;
-					}
-					else
-					{
-						this.startNight();
-						return;
-					}
+					this.startVote(topGamer);
+					return;
 				}
 			}
 			
 			this.messageAllPlayers("The citizens could not make a decision!");
 			this.startNight();
 			
+		}
+	}
+	
+	public void startVote(Gamer gamer)
+	{
+	
+		this.voteBoard     = this.manager.getNewScoreboard();
+		this.voteObjective = this.board.registerNewObjective("death", "dummy");
+		this.voteObjective.setDisplaySlot(DisplaySlot.SIDEBAR);
+		this.voteObjective.setDisplayName("Put to death?");
+			
+		this.voteMap     = new HashMap<Gamer, Boolean>();
+		this.voteYes     = 0;
+		this.voteNo      = 0;
+		this.chosenGamer = gamer;
+			
+		for (int i = 0; i < players.size(); i++)
+		{
+			Gamer cgamer = players.get(i);
+			if (cgamer.player.isOnline())
+			{
+				cgamer.player.setScoreboard(this.voteBoard);
+			}
+		}
+		
+		this.gameStage = GameStage.VOTE;
+		this.messageAllPlayers("The citizens have accused " + gamer.player.getName() + " of being evil!");
+		this.messageAllPlayers("You can now vote /z yes or /z no to decide their fate.");
+		
+		Score scorey = objective.getScore("yes");
+		scorey.setScore(0);
+		Score scoren = objective.getScore("no");
+		scoren.setScore(0);		
+		
+		// start timeout for when voting ends!
+		this.voteTimeout = new VoteTimeout(this).runTaskLater(this, this.voteLength);
+	}
+		
+		
+	public void onPlayerVote(Gamer gamer, boolean killThem)
+	{
+		// did they already vote?
+		Boolean existingVote = this.voteMap.get(gamer);
+		
+		if (existingVote != null)
+		{
+			// they already voted, so check if the vote has changed
+			if (killThem == existingVote.booleanValue())
+			{
+				// they didnt change their vote, so just return
+				return;
+			}
+			else
+			{
+				// They did change their vote, so reduce the previous score by one
+				if (existingVote.booleanValue() == true)
+				{
+					this.voteYes--;
+					Score score = objective.getScore("yes");
+					score.setScore(score.getScore() - 1);
+				}
+				else
+				{
+					this.voteNo--;
+					Score score = objective.getScore("no");
+					score.setScore(score.getScore() - 1);					
+				}
+			}
+			
+		}
+		
+		// Map their vote (either new or updated)
+		this.voteMap.put(gamer,new Boolean(killThem));
+		
+		// add scores
+		if (killThem)
+		{
+			Score score = objective.getScore("yes");
+			score.setScore(score.getScore() + 1);			
+			this.voteYes++;
+			this.messageAllPlayers(gamer.player.getName() + " voted yes");
+		}
+		else
+		{
+			Score score = objective.getScore("no");
+			score.setScore(score.getScore() + 1);				
+			this.voteNo++;
+			this.messageAllPlayers(gamer.player.getName() + " voted no");
+			
+		}		
+	}
+	
+	public void endVote()
+	{	
+		// update game stage
+		this.gameStage = GameStage.END_VOTE;
+		
+		// Wipe the object variable for the chosen gamer
+		Gamer targetGamer = this.chosenGamer;
+		this.chosenGamer = null;
+		
+		// restore previous scoreboard
+		for (int i = 0; i < players.size(); i++)
+		{
+			Gamer cgamer = players.get(i);
+			if (cgamer.player.isOnline())
+			{
+				cgamer.player.setScoreboard(this.board);
+			}
+		}		
+		
+		if (this.voteYes == this.voteNo)
+		{
+			this.messageAllPlayers("The citizens could not make a decision!");
+			this.startNight();
+		}
+		else if (this.voteYes > this.voteNo)
+		{
+			this.messageAllPlayers("The citizens chose to put " + targetGamer.player.getName() + " to death!");
+		
+			targetGamer.kill();
+			this.markPlayerAsDead(targetGamer);
+		
+			if (this.isGameFinished())
+			{
+				return;
+			}
+			else
+			{
+				this.startNight();
+			}
+		}
+		else
+		{
+			this.messageAllPlayers("The citizens chose to not kill " + targetGamer.player.getName());
+			this.startNight();
 		}
 	}
 }
