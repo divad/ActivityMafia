@@ -7,7 +7,7 @@ public class Doctor extends MafiaCharacter
 {
 	public Doctor()
 	{
-		super("Doctor", new CharacterAction[]{CharacterAction.HEAL}, MafiaTeam.TOWN, "Your role is to save others. You can 'heal' people as your action.");
+		super("Doctor", new CharacterAction[]{CharacterAction.HEAL}, MafiaTeam.TOWN, "Your role is to save others from death. You can type /z heal <player> as your action.");
 
 	}
 }

@@ -1,10 +1,12 @@
 package io.evad.mineactivity.mafia;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Random;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -29,7 +31,6 @@ import io.evad.mineactivity.mafia.timeouts.*;
 
 /*
  * TODO:
- * death messages
  * moar players
  * moar roles
  * double mafia
@@ -64,8 +65,6 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	ScoreboardManager manager = null;
 	Scoreboard board          = null;
 	Objective objective       = null;
-	Scoreboard voteBoard      = null;
-	Objective voteObjective   = null;
 	
 	// Accusation tracking
 	HashMap<Gamer, Gamer> accuseMap = null;
@@ -96,11 +95,11 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		characters.add(new Detective());
 		characters.add(new Citizen());
 		characters.add(new Doctor());
-		characters.add(new Citizen());
+		characters.add(new Streetwalker());
 		characters.add(new Maniac());
 		characters.add(new Citizen());
 		characters.add(new Citizen());
-		characters.add(new Citizen());
+		characters.add(new Streetwalker());
 	}
 	
 	public void wipeScoreboard()
@@ -148,6 +147,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
        	        	{
        	        		if (gamer.isAlive())
        	        		{
+       	        			this.messageAllPlayers(gamer.player.getName() + " commited suicide!");
 	       	        		gamer.kill();
 	       	        		this.markPlayerAsDead(gamer);
 	       	        		
@@ -380,14 +380,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 						}						
 						else
 						{
-							if (args.length == 2)
-							{
-								return onPlayerAction(gamer,args[0],args);
-							}
-							else
-							{
-								sender.sendMessage(this.chatPrefix + "Error! Usage: /z <action> <target>");
-							}
+							return onPlayerAction(gamer,args[0],args);
 						}
 					}
 				}
@@ -663,6 +656,12 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			// Declare variables
 			Gamer targetGamer = null;
 			
+			if (args.length <= 1)
+			{
+				gamer.player.sendMessage(this.chatPrefix + "Error: You must specify a target");
+				return false;
+			}
+			
 			// Find the target of the action
 			String target = args[1];
 			Player targetPlayer = Bukkit.getPlayer(target);
@@ -679,7 +678,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 				if (targetGamer == null)
 				{
 					gamer.player.sendMessage(this.chatPrefix + "Error: That player isn't in the game!");
-					return true;							
+					return true;
 				}
 				
 				// make sure the target is alive...
@@ -694,6 +693,14 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			// Make sure they player hasn't already done their action
 			if (!(gamer.hasPerformedAction()))
 			{
+				// get message (if any)
+				String actionMessage = "";
+				if (args.length > 2)
+				{
+					String[] actionMessages = Arrays.copyOfRange(args, 2, args.length);
+					actionMessage = " (" + String.join(" ", actionMessages) + ")";
+				}
+				
 				// KILL
 				if (string.equalsIgnoreCase("kill"))
 				{
@@ -701,8 +708,18 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					{
 						gamer.setActionPerformed();
 						targetGamer.attack();
-						this.nightMessages.add(gamer.character.name + ChatColor.YELLOW + " attacked " + this.textColour + targetPlayer.getName());
+						this.nightMessages.add(gamer.character.name + ChatColor.YELLOW + " attacked " + this.textColour + targetPlayer.getName() + actionMessage);
 						gamer.player.sendMessage(this.chatPrefix + "You have attacked " + targetPlayer.getName());
+						
+						if (gamer.character.team == MafiaTeam.TOWN)
+						{
+							if (targetGamer.character.team == MafiaTeam.TOWN)
+							{
+								this.nightMessages.add("The " + gamer.character.getName() + " attacked their own team! Due to their disgrace, they resign and become a citizen.");
+								gamer.character = new Citizen();
+							}
+						}
+						
 						this.checkIfNightIsOver();							
 						return true;
 					}
@@ -718,7 +735,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					{
 						gamer.setActionPerformed();
 						targetGamer.heal();
-						this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " healed " + this.textColour + targetPlayer.getName());
+						this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " healed " + this.textColour + targetPlayer.getName() + actionMessage);
 						gamer.player.sendMessage(this.chatPrefix + "You have healed " + targetPlayer.getName());
 						this.checkIfNightIsOver();		
 						return true;
@@ -734,9 +751,10 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					if (gamer.character.canPerformAction(CharacterAction.CHECK))
 					{
 						gamer.setActionPerformed();
-						gamer.addNightMessageIfAlive(targetPlayer.getName() + " is " + targetGamer.character.name);
-						gamer.player.sendMessage(this.chatPrefix + "You have checked " + targetPlayer.getName());
-						this.checkIfNightIsOver();							
+						this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " checked out " + this.textColour + targetPlayer.getName() + actionMessage);						
+						gamer.addNightMessageIfAlive(this.chatPrefix + ChatColor.GOLD + targetPlayer.getName() + " is " + targetGamer.character.name);
+						gamer.player.sendMessage(this.chatPrefix + "You have checked " + targetPlayer.getName() + " - if you survive the night you will be told their role");
+						this.checkIfNightIsOver();
 						return true;
 					}
 					else
@@ -745,6 +763,82 @@ public class ActivityMafia extends JavaPlugin implements Listener
 						return true;
 					}					
 				}
+				else if (string.equalsIgnoreCase("love"))
+				{
+					if (gamer.character.canPerformAction(CharacterAction.LOVE))
+					{
+						gamer.setActionPerformed();
+						gamer.player.sendMessage(this.chatPrefix + "You have slipped beneath the silk sheets with " + targetPlayer.getName());
+
+						Random rng = new Random();
+						int ran = rng.nextInt(3) + 1;
+						
+						if (ran == 1)
+						{
+							// reveal role
+							this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " spent the night with " + this.textColour + targetPlayer.getName() + ", who wakes up to a note saying 'I know who you are!'" + actionMessage);																				
+							gamer.addNightMessageIfAlive("In their sleep your partner mumbles details to identify them!");
+							gamer.addNightMessageIfAlive(ChatColor.GOLD + targetPlayer.getName() + " is " + targetGamer.character.name);
+						}
+						else if (ran == 2)
+						{
+							// kill target
+							this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " spent the night with " + this.textColour + targetPlayer.getName() + " but forgot to use protection!" + actionMessage);													
+							targetGamer.attack();
+						}
+						else if (ran == 3)
+						{
+							// heal target
+							this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " spent the night with " + this.textColour + targetPlayer.getName() + " which causes them to feel healed!" + actionMessage);													
+							targetGamer.heal();
+						}				
+						else if (ran == 4)
+						{
+							// nothing happens
+							this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " tried to spend the night with " + this.textColour + targetPlayer.getName() + " but they were rejected!" + actionMessage);													
+						}
+						
+						this.checkIfNightIsOver();
+						return true;
+					}
+					else
+					{
+						gamer.player.sendMessage(this.chatPrefix + "Your character cannot perform that action");
+						return true;
+					}					
+				}	
+				else if (string.equalsIgnoreCase("pray"))
+				{
+					if (gamer.character.canPerformAction(CharacterAction.PRAY))
+					{
+						gamer.setActionPerformed();
+						gamer.player.sendMessage(this.chatPrefix + "You have prayed to the flying spaghetti monster asking him to protect " + targetPlayer.getName());
+
+						Random rng = new Random();
+						int ran = rng.nextInt(9) + 1;
+						
+						if (ran == 1)
+						{
+							// reveal role
+							this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " prayed for " + this.textColour + targetPlayer.getName() + "'s life. They were healed by divine intervention!" + actionMessage);																				
+							targetGamer.heal();
+						}
+						else
+						{
+							this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " prayed for " + this.textColour + targetPlayer.getName() + "'s life. Sadly, nothing happened." + actionMessage);																				
+							
+						}
+						
+
+						this.checkIfNightIsOver();
+						return true;
+					}
+					else
+					{
+						gamer.player.sendMessage(this.chatPrefix + "Your character cannot perform that action");
+						return true;
+					}					
+				}					
 				else
 				{
 					gamer.player.sendMessage(this.chatPrefix + "What? I didn't understand that command");
@@ -938,37 +1032,36 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	
 	public void startVote(Gamer gamer)
 	{
-	
-		this.voteBoard     = this.manager.getNewScoreboard();
-		this.voteObjective = this.board.registerNewObjective("death", "dummy");
-		this.voteObjective.setDisplaySlot(DisplaySlot.SIDEBAR);
-		this.voteObjective.setDisplayName("Put to death?");
-			
-		this.voteMap     = new HashMap<Gamer, Boolean>();
-		this.voteYes     = 0;
-		this.voteNo      = 0;
-		this.chosenGamer = gamer;
-			
-		for (int i = 0; i < players.size(); i++)
+		if (this.gameStage == GameStage.END_NOMINATE)
 		{
-			Gamer cgamer = players.get(i);
-			if (cgamer.player.isOnline())
+			this.objective.setDisplayName("Put to death?");
+				
+			this.voteMap     = new HashMap<Gamer, Boolean>();
+			this.voteYes     = 0;
+			this.voteNo      = 0;
+			this.chosenGamer = gamer;
+				
+			for (int i = 0; i < players.size(); i++)
 			{
-				cgamer.player.setScoreboard(this.voteBoard);
+				Gamer cgamer = players.get(i);
+				if (cgamer.isAlive())
+				{
+					this.board.resetScores(cgamer.player.getName());
+				}
 			}
+			
+			this.gameStage = GameStage.VOTE;
+			this.messageAllPlayers("The citizens have accused " + gamer.player.getName() + " of being evil!");
+			this.messageAllPlayers("You can now vote /z yes or /z no to decide their fate.");
+			
+			Score scorey = objective.getScore("yes");
+			scorey.setScore(0);
+			Score scoren = objective.getScore("no");
+			scoren.setScore(0);		
+			
+			// start timeout for when voting ends!
+			this.voteTimeout = new VoteTimeout(this).runTaskLater(this, this.voteLength);
 		}
-		
-		this.gameStage = GameStage.VOTE;
-		this.messageAllPlayers("The citizens have accused " + gamer.player.getName() + " of being evil!");
-		this.messageAllPlayers("You can now vote /z yes or /z no to decide their fate.");
-		
-		Score scorey = objective.getScore("yes");
-		scorey.setScore(0);
-		Score scoren = objective.getScore("no");
-		scoren.setScore(0);		
-		
-		// start timeout for when voting ends!
-		this.voteTimeout = new VoteTimeout(this).runTaskLater(this, this.voteLength);
 	}
 		
 		
@@ -1035,12 +1128,18 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		this.chosenGamer = null;
 		
 		// restore previous scoreboard
+		this.objective.setDisplayName("Players alive");
+		this.board.resetScores("yes");
+		this.board.resetScores("no");
+		
+		
 		for (int i = 0; i < players.size(); i++)
 		{
 			Gamer cgamer = players.get(i);
-			if (cgamer.player.isOnline())
+			if (cgamer.isAlive())
 			{
-				cgamer.player.setScoreboard(this.board);
+				Score score = objective.getScore(cgamer.player.getName());
+				score.setScore(0);
 			}
 		}		
 		

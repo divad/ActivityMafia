@@ -4,5 +4,7 @@ public enum CharacterAction
 {
 	KILL,
 	HEAL,
-	CHECK
+	CHECK,
+	LOVE,
+	PRAY,
 }
