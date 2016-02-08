@@ -4,14 +4,22 @@ import java.util.ArrayList;
 
 import org.bukkit.entity.Player;
 
+import io.evad.mineactivity.mafia.actions.CharacterAction;
+import io.evad.mineactivity.mafia.characters.MafiaCharacter;
+
 public class Gamer
 {
 	public Player player;
 	private boolean alive = true;
 	public MafiaCharacter character;
 	
+	// data that changes on each night
+	public CharacterAction action = null;
+	public Gamer actionTarget       = null;
+	public boolean actionBlocked    = false;
 	public int health = 0; /* 0 and above is alive. below 0 is dead. */
 	public boolean actionPerformed = false;
+	public String actionMessage = null;
 	
 	private ArrayList<String> nightMessages = new ArrayList<String>();
 	private ArrayList<String> nightMessagesIfAlive = new ArrayList<String>();
@@ -52,12 +60,26 @@ public class Gamer
 		this.actionPerformed = false;
 		this.nightMessages = new ArrayList<String>();
 		this.nightMessagesIfAlive = new ArrayList<String>();
+		this.actionTarget = null;
+		this.actionBlocked = false;
+		this.action = null;
+		
 	}
 	
-	public void setActionPerformed()
+	public void requestAction(CharacterAction action, Gamer targetGamer, String message)
 	{
 		this.actionPerformed = true;
+		this.action          = action;
+		this.actionMessage   = message;
+		this.actionTarget    = targetGamer;
+		action.doActionRequest(this, targetGamer);
 	}
+	
+	public void doAction(ActivityMafia mafia)
+	{
+		this.action.doAction(this, this.actionTarget, this.actionMessage, mafia);
+	}
+	
 	
 	public boolean hasPerformedAction()
 	{
@@ -80,12 +102,23 @@ public class Gamer
 	public void heal()
 	{
 		this.health = this.health + 1;
-	}	
+	}
+	
+	public void block()
+	{
+		this.actionBlocked = true;
+	}
 	
 	/* used to check if the player is alive at any time */
 	public boolean isAlive()
 	{
 		return this.alive;
+	}
+	
+	/* used to check if they were blocked from doing any actions */
+	public boolean actionNotBlocked()
+	{
+		return !this.actionBlocked;
 	}
 	
 	/* used if a player is put to death or the player is killed */

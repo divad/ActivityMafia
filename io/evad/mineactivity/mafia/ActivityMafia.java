@@ -6,7 +6,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Random;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -24,6 +23,7 @@ import org.bukkit.scoreboard.Score;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
 
+import io.evad.mineactivity.mafia.actions.CharacterAction;
 import io.evad.mineactivity.mafia.characters.*;
 import io.evad.mineactivity.mafia.enums.*;
 import io.evad.mineactivity.mafia.timeouts.*;
@@ -31,6 +31,8 @@ import io.evad.mineactivity.mafia.timeouts.*;
 
 /*
  * TODO:
+ * new engine
+ * make it so that suicides in vote/accuse removes them from stuff
  * moar players
  * moar roles
  * double mafia
@@ -50,7 +52,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	private BukkitTask nightTimeout    = null;
 	private BukkitTask discussTimeout  = null;
 	private BukkitTask nominateTimeout = null;
-	private BukkitTask voteTimeout = null;
+	private BukkitTask voteTimeout     = null;
 	
 	// night time log
 	private ArrayList<String> nightMessages = new ArrayList<String>();
@@ -67,7 +69,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	Objective objective       = null;
 	
 	// Accusation tracking
-	HashMap<Gamer, Gamer> accuseMap = null;
+	HashMap<Gamer, Gamer> accuseMap           = null;
 	HashMap<Gamer, Integer> accusationCounter = null;
 	
 	// Vote tracking
@@ -77,12 +79,16 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	Gamer chosenGamer = null;
 	
 	// chat prefix 
-	public ChatColor textColour = ChatColor.AQUA;
-	public ChatColor winAnnounceColour = ChatColor.GOLD;
-	public String chatPrefix = ChatColor.GRAY + "[" + ChatColor.GOLD + "Mafia" + ChatColor.GRAY + "] " + textColour;
+	public static ChatColor textColour = ChatColor.AQUA;
+	public static ChatColor winAnnounceColour = ChatColor.GOLD;
+	public static String chatPrefix = ChatColor.GRAY + "[" + ChatColor.GOLD + "Mafia" + ChatColor.GRAY + "] " + textColour;
 	
 	/***************************************************************************************************************************************************/
 	
+	public void addNightMessage(String message)
+	{
+		this.nightMessages.add(message);
+	}
 	
 	@Override
 	public void onEnable()
@@ -164,7 +170,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
    					{
    						gamer.player.setScoreboard(this.manager.getMainScoreboard());
    						
-   						gamer.player.sendMessage(this.chatPrefix + " You left the game!");   					
+   						gamer.player.sendMessage(ActivityMafia.chatPrefix + " You left the game!");   					
    					}       	        	
         		}     		
         	}
@@ -203,9 +209,8 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		}
 		
 		/* count members of each team */
-		for (int i = 0; i < players.size(); i++)
+		for (Gamer gamer : this.players)
 		{
-			Gamer gamer = players.get(i);
 			if (gamer.isAlive())
 			{
 				teamPlayers.put(gamer.character.team, new Integer(teamPlayers.get(gamer.character.team).intValue() + 1));
@@ -214,30 +219,30 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		}
 		
 		/* Check if TOWN won */
-		int town = teamPlayers.get(MafiaTeam.TOWN).intValue();
-		int mafia = teamPlayers.get(MafiaTeam.MAFIA).intValue();
+		int town   = teamPlayers.get(MafiaTeam.TOWN).intValue();
+		int mafia  = teamPlayers.get(MafiaTeam.MAFIA).intValue();
 		int maniac = teamPlayers.get(MafiaTeam.MANIAC).intValue();
 		
 		boolean end = false;
 		
 		if (town > 0 && mafia == 0 && maniac == 0)
 		{
-			this.messageAllPlayers(this.winAnnounceColour + "Town won! The citizens rejoice!");
+			this.messageAllPlayers(ActivityMafia.winAnnounceColour + "Town won! The citizens rejoice!");
 			end = true;
 		}
 		else if (town == 0 && mafia > 0 && maniac == 0)
 		{
-			this.messageAllPlayers(this.winAnnounceColour + "The mafia won! Emperor Palpatine is pleased.");
+			this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The mafia won! Emperor Palpatine is pleased.");
 			end = true;
 		}
 		else if (town == 0 && mafia == 0 && maniac > 0)
 		{
-			this.messageAllPlayers(this.winAnnounceColour + "The maniac won! The maniac soon begins to feel lonely and sad.");
+			this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The maniac won! The maniac soon begins to feel lonely and sad.");
 			end = true;
 		}
 		else if (town == 0 && mafia == 0 && maniac == 0)
 		{
-			this.messageAllPlayers(this.winAnnounceColour + "Everybody is dead. Herobrine won!");
+			this.messageAllPlayers(ActivityMafia.winAnnounceColour + "Everybody is dead. Herobrine won!");
 			end = true;
 		}
 		else if (playersAlive == 2)
@@ -246,15 +251,15 @@ public class ActivityMafia extends JavaPlugin implements Listener
 
 			if (mafia > 0 && maniac <= 0)
 			{
-				this.messageAllPlayers(this.winAnnounceColour + "The mafia won! Khan is pleased. The Mafia turns the last townsperson evil.");
+				this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The mafia won! Khan is pleased. The Mafia turns the last townsperson evil.");
 			}
 			else if (maniac > 0 && mafia <= 0)
 			{
-				this.messageAllPlayers(this.winAnnounceColour + "The maniac won! They copulate with the last townsperson and have maniac babies");
+				this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The maniac won! They copulate with the last townsperson and have maniac babies");
 			}
 			else
 			{
-				this.messageAllPlayers(this.winAnnounceColour + "Only the mafia and the maniac survive! They eye each other suspiciously. #nohomo");
+				this.messageAllPlayers(ActivityMafia.winAnnounceColour + "Only the mafia and the maniac survive! They eye each other suspiciously. #nohomo");
 			}
 		}
 		
@@ -285,10 +290,8 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			
 			// Remove all scoreboards from players
 			// and print out who was what
-			for (int i = 0; i < this.players.size(); i++)
+			for (Gamer gamer : this.players)
 			{
-				Gamer gamer = this.players.get(i);
-				
 				if (gamer.isAlive())
 				{
 					this.messageAllPlayers(gamer.player.getName() + " was: " + gamer.character.getName());
@@ -299,7 +302,6 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					gamer.player.setScoreboard(this.manager.getMainScoreboard());
 				}
 				
-				// clear their scoreboard entries too
 				this.board.resetScores(gamer.player.getName());
 			}
 		}
@@ -316,7 +318,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		{
 			if (!(sender instanceof Player))
 			{
-				sender.sendMessage(this.chatPrefix + "This command can only be run by a player.");
+				sender.sendMessage(ActivityMafia.chatPrefix + "This command can only be run by a player.");
 			}
 			else
 			{
@@ -329,37 +331,34 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					{
 						onPlayerJoin(player);
 					}
-					// TODO add other non in-game commands here
 					else
 					{
 						// Find the gamer object for this player
-						boolean found = false;
 						Gamer gamer = null;
-						for (int i = 0; i < this.players.size(); i++)
+						for (Gamer cgamer : this.players)
 						{
-							gamer = this.players.get(i);
-							if (gamer.player == player)
+							if (cgamer.player == player)
 							{
-								found = true;
+								gamer = cgamer;
 								break;
 							}
 						}
 						
 						// Did we find a player?
-						if (!found)
+						if (gamer == null)
 						{
-							player.sendMessage(this.chatPrefix + "Error: You are not in this game of mafia. Please wait for the next game");
+							player.sendMessage(ActivityMafia.chatPrefix + "Error: You are not in this game of mafia. Please wait for the next game");
 							return true;
 						}
 						
 						// Is the gamer alive?
 						if (!gamer.isAlive())
 						{
-							player.sendMessage(this.chatPrefix + "Error: You're dead! You can't do any more actions. :(");
+							player.sendMessage(ActivityMafia.chatPrefix + "Error: You're dead! You can't do any more actions. :(");
 							return true;
 						}
 						
-						if (args[0].equals("quit") || args[0].equals("leave") || args[0].equals("exit"))
+						if (args[0].equalsIgnoreCase("quit") || args[0].equalsIgnoreCase("leave") || args[0].equalsIgnoreCase("exit") || args[0].equalsIgnoreCase("suicide"))
 						{
 							this.onPlayerQuit(gamer.player);
 						}
@@ -380,7 +379,9 @@ public class ActivityMafia extends JavaPlugin implements Listener
 						}						
 						else
 						{
-							return onPlayerAction(gamer,args[0],args);
+							// anything else is treated as a night command
+							onPlayerAction(gamer,args[0],args);
+							return true;
 						}
 					}
 				}
@@ -388,10 +389,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 				{
 					return false;
 				}
-				
 			}
-
-			return true;
 		}
 		return false;
 	}
@@ -415,11 +413,11 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			else
 			{
 				// Block players who have joined already
-				for (int i = 0; i < players.size(); i++)
+				for (Gamer gamer : this.players)
 				{
-					if (players.get(i).player == player)
+					if (gamer.player == player)
 					{
-						player.sendMessage(this.chatPrefix + "You're already registered - please wait for the game to start.");
+						player.sendMessage(ActivityMafia.chatPrefix + "You're already registered, please wait for the game to start.");
 						return;
 					}
 				}
@@ -427,7 +425,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			
 			// Add the player
 			this.players.add(new Gamer(player));
-			player.sendMessage(this.chatPrefix + "You have joined the game. Please wait for others to join.");
+			player.sendMessage(ActivityMafia.chatPrefix + "You have joined the game, please wait for it to start.");
 			
 			Score score = this.objective.getScore(player.getName());
 			score.setScore(0);
@@ -442,7 +440,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		}
 		else
 		{
-			player.sendMessage(this.chatPrefix + "Sorry but a game is already underway. Please wait for it to finish");
+			player.sendMessage(ActivityMafia.chatPrefix + "Sorry but a game is already underway. Please wait for it to finish");
 		}
 	}
 	
@@ -457,7 +455,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		this.players = new ArrayList<Gamer>();
 		this.wipeScoreboard();
 		this.gameStage = GameStage.REGISTER;
-		Bukkit.broadcastMessage(this.chatPrefix + "A game of mafia is about to begin! To join type /z join and then type /rp to chat in-game.");
+		Bukkit.broadcastMessage(ActivityMafia.chatPrefix + "A game of mafia is about to begin! To join type /z join and then type /rp to chat in-game.");
 		new RegistrationTimeout(this).runTaskLater(this, this.registrationTimeout);
 	}
 	
@@ -474,10 +472,10 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		{
 			if (this.players.size() <= 2)
 			{
-				for (int i = 0; i < this.players.size(); i++)
+				for (Gamer gamer : this.players)
 				{
-					this.players.get(i).player.sendMessage(this.chatPrefix + "Not enough players joined the game, sorry!");
-					this.players.get(i).player.setScoreboard(this.manager.getMainScoreboard());
+					gamer.player.sendMessage(ActivityMafia.chatPrefix + "Not enough players joined the game, sorry!");
+					gamer.player.setScoreboard(this.manager.getMainScoreboard());
 					this.wipeScoreboard();
 				}
 				
@@ -491,31 +489,34 @@ public class ActivityMafia extends JavaPlugin implements Listener
 				
 				// shuffle the order of the players who joined into roles
 				ArrayList<Gamer> roles = new ArrayList<Gamer>();
-				for (int i = 0; i < players.size(); i++)
+				for (Gamer gamer : this.players)
 				{
-					roles.add(players.get(i));
+					roles.add(gamer);
 				}
+				
+				
+				Collections.shuffle(roles);
+				Collections.shuffle(roles);
 				Collections.shuffle(roles);
 				
-				String charactersString = "Characters:";
+				
+				//String charactersString = "Characters:";
 				
 				// Assign roles
 				for (int i = 0; i < roles.size(); i++)
 				{
-					Gamer gamer = roles.get(i);
+					Gamer gamer     = roles.get(i);
 					gamer.character = this.characters.get(i);
-					gamer.player.sendMessage(this.chatPrefix + "You have been assigned the role of: " + ChatColor.YELLOW + gamer.character.getName());
-					charactersString += " " + gamer.character.name;
+					gamer.player.sendMessage(ActivityMafia.chatPrefix + "You have been assigned the role of: " + ChatColor.YELLOW + gamer.character.getName());
+					//charactersString += " " + gamer.character.name;
 					getLogger().info("Player " + gamer.player.getName() + " was assigned role " + gamer.character.name);
 				}
 				
-				// Broadcast who is playing and what the characters are!
-				for (int i = 0; i < players.size(); i++)
+				// Broadcast the characters who are in the game
+				/*for (Gamer gamer : this.players)
 				{
-					Gamer gamer = players.get(i);
-					//gamer.player.sendMessage(this.chatPrefix + playersString);
-					gamer.player.sendMessage(this.chatPrefix + charactersString);
-				}
+					gamer.player.sendMessage(ActivityMafia.chatPrefix + charactersString);
+				}*/
 				
 				// switch to night now
 				this.startNight();
@@ -528,10 +529,9 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	
 	public void messageAllPlayers(String message)
 	{
-		for (int i = 0; i < players.size(); i++)
+		for (Gamer gamer : this.players)
 		{
-			Gamer gamer = players.get(i);
-			gamer.player.sendMessage(this.chatPrefix + message);
+			gamer.player.sendMessage(ActivityMafia.chatPrefix + message);
 		}		
 	}
 	
@@ -540,9 +540,8 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	
 	public Gamer getGamerByPlayer(Player player)
 	{
-		for (int i = 0; i < players.size(); i++)
+		for (Gamer gamer : this.players)
 		{
-			Gamer gamer = players.get(i);
 			if (gamer.player == player)
 			{
 				return gamer;
@@ -561,14 +560,12 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		this.gameStage = GameStage.NIGHT;
 		this.messageAllPlayers("It is now NIGHT");
 		
-		for (int i = 0; i < this.players.size(); i++)
+		for (Gamer gamer : this.players)
 		{
-			Gamer gamer = this.players.get(i);
-			
 			if (gamer.isAlive())
 			{
-				gamer.player.sendMessage(this.chatPrefix + "It is time to do your actions!");
-				gamer.player.sendMessage(this.chatPrefix + gamer.character.desc);
+				gamer.player.sendMessage(ActivityMafia.chatPrefix + "It is time to do your actions!");
+				gamer.player.sendMessage(ActivityMafia.chatPrefix + gamer.character.desc);
 				
 				// Reset their score to 0 in the scoreboard
 				Score score = this.objective.getScore(gamer.player.getName());
@@ -584,9 +581,8 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	
 	public void checkIfNightIsOver()
 	{
-		for (int i =0; i < players.size(); i++)
+		for (Gamer gamer : this.players)
 		{
-			Gamer gamer = players.get(i);
 			if (gamer.isAlive())
 			{
 				if (!(gamer.hasPerformedAction()))
@@ -611,18 +607,31 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		{
 			this.nightTimeout = null;
 			this.gameStage = GameStage.END_NIGHT;
+			
+			
+			// Do the actions requested by players in the night
+			for (Gamer gamer : this.players)
+			{
+				if (gamer.isAlive())
+				{
+					if (gamer.actionNotBlocked())
+					{
+						gamer.doAction(this);
+					}
+				}
+			}
+			
 			this.messageAllPlayers("The sun rises and its DAY!");
 		
 			// Say what happened overnight
-			for (int i = 0; i < this.nightMessages.size(); i++)
+			for (String message : this.nightMessages)
 			{
-				this.messageAllPlayers(this.nightMessages.get(i));
+				this.messageAllPlayers(message);
 			}		
 			
 			// process players and their deaths
-			for (int i = 0; i < players.size(); i++)
+			for (Gamer gamer : this.players)
 			{
-				Gamer gamer = players.get(i);
 				if (gamer.isAlive())
 				{
 					if (!(gamer.isAliveAfterNight()))
@@ -646,7 +655,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	
 	/***************************************************************************************************************************************************/
 	
-	private boolean onPlayerAction(Gamer gamer, String string, String[] args)
+	private void onPlayerAction(Gamer gamer, String cmd, String[] args)
 	{
         getLogger().info(":: onPlayerAction: Called by " + gamer.player.getName() + " with args: " + String.join(" ",args));
 
@@ -658,8 +667,8 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			
 			if (args.length <= 1)
 			{
-				gamer.player.sendMessage(this.chatPrefix + "Error: You must specify a target");
-				return false;
+				gamer.player.sendMessage(ActivityMafia.chatPrefix + "Error: You must specify a target");
+				return;
 			}
 			
 			// Find the target of the action
@@ -667,8 +676,8 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			Player targetPlayer = Bukkit.getPlayer(target);
 			if (targetPlayer == null)
 			{
-				gamer.player.sendMessage(this.chatPrefix + "Error: No such player!");
-				return true;
+				gamer.player.sendMessage(ActivityMafia.chatPrefix + "Error: No such player!");
+				return;
 			}
 			else
 			{
@@ -677,15 +686,15 @@ public class ActivityMafia extends JavaPlugin implements Listener
 				
 				if (targetGamer == null)
 				{
-					gamer.player.sendMessage(this.chatPrefix + "Error: That player isn't in the game!");
-					return true;
+					gamer.player.sendMessage(ActivityMafia.chatPrefix + "Error: That player isn't in the game!");
+					return;
 				}
 				
 				// make sure the target is alive...
 				if (!(targetGamer.isAlive()))
 				{
-					gamer.player.sendMessage(this.chatPrefix + "Error: That player is dead!");
-					return true;
+					gamer.player.sendMessage(ActivityMafia.chatPrefix + "Error: That player is dead!");
+					return;
 				}
 				
 			}
@@ -701,160 +710,35 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					actionMessage = " (" + String.join(" ", actionMessages) + ")";
 				}
 				
-				// KILL
-				if (string.equalsIgnoreCase("kill"))
+				// Check to see if the action cmd string they have sent
+				// is valid for their character. This returns the action object
+				// itself.
+				
+				CharacterAction action = gamer.character.getAction(cmd);
+				
+				if (action == null)
 				{
-					if (gamer.character.canPerformAction(CharacterAction.KILL))
-					{
-						gamer.setActionPerformed();
-						targetGamer.attack();
-						this.nightMessages.add(gamer.character.name + ChatColor.YELLOW + " attacked " + this.textColour + targetPlayer.getName() + actionMessage);
-						gamer.player.sendMessage(this.chatPrefix + "You have attacked " + targetPlayer.getName());
-						
-						if (gamer.character.team == MafiaTeam.TOWN)
-						{
-							if (targetGamer.character.team == MafiaTeam.TOWN)
-							{
-								this.nightMessages.add("The " + gamer.character.getName() + " attacked their own team! Due to their disgrace, they resign and become a citizen.");
-								gamer.character = new Citizen();
-							}
-						}
-						
-						this.checkIfNightIsOver();							
-						return true;
-					}
-					else
-					{
-						gamer.player.sendMessage(this.chatPrefix + "Your character cannot perform that action");
-						return true;
-					}					
+					gamer.player.sendMessage(ActivityMafia.chatPrefix + "Your character cannot perform that action");
+					return;		
 				}
-				else if (string.equalsIgnoreCase("heal"))
-				{
-					if (gamer.character.canPerformAction(CharacterAction.HEAL))
-					{
-						gamer.setActionPerformed();
-						targetGamer.heal();
-						this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " healed " + this.textColour + targetPlayer.getName() + actionMessage);
-						gamer.player.sendMessage(this.chatPrefix + "You have healed " + targetPlayer.getName());
-						this.checkIfNightIsOver();		
-						return true;
-					}
-					else
-					{
-						gamer.player.sendMessage(this.chatPrefix + "Your character cannot perform that action");
-						return true;
-					}
-				}
-				else if (string.equalsIgnoreCase("check"))
-				{
-					if (gamer.character.canPerformAction(CharacterAction.CHECK))
-					{
-						gamer.setActionPerformed();
-						this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " checked out " + this.textColour + targetPlayer.getName() + actionMessage);						
-						gamer.addNightMessageIfAlive(this.chatPrefix + ChatColor.GOLD + targetPlayer.getName() + " is " + targetGamer.character.name);
-						gamer.player.sendMessage(this.chatPrefix + "You have checked " + targetPlayer.getName() + " - if you survive the night you will be told their role");
-						this.checkIfNightIsOver();
-						return true;
-					}
-					else
-					{
-						gamer.player.sendMessage(this.chatPrefix + "Your character cannot perform that action");
-						return true;
-					}					
-				}
-				else if (string.equalsIgnoreCase("love"))
-				{
-					if (gamer.character.canPerformAction(CharacterAction.LOVE))
-					{
-						gamer.setActionPerformed();
-						gamer.player.sendMessage(this.chatPrefix + "You have slipped beneath the silk sheets with " + targetPlayer.getName());
-
-						Random rng = new Random();
-						int ran = rng.nextInt(3) + 1;
-						
-						if (ran == 1)
-						{
-							// reveal role
-							this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " spent the night with " + this.textColour + targetPlayer.getName() + ", who wakes up to a note saying 'I know who you are!'" + actionMessage);																				
-							gamer.addNightMessageIfAlive("In their sleep your partner mumbles details to identify them!");
-							gamer.addNightMessageIfAlive(ChatColor.GOLD + targetPlayer.getName() + " is " + targetGamer.character.name);
-						}
-						else if (ran == 2)
-						{
-							// kill target
-							this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " spent the night with " + this.textColour + targetPlayer.getName() + " but forgot to use protection!" + actionMessage);													
-							targetGamer.attack();
-						}
-						else if (ran == 3)
-						{
-							// heal target
-							this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " spent the night with " + this.textColour + targetPlayer.getName() + " which causes them to feel healed!" + actionMessage);													
-							targetGamer.heal();
-						}				
-						else if (ran == 4)
-						{
-							// nothing happens
-							this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " tried to spend the night with " + this.textColour + targetPlayer.getName() + " but they were rejected!" + actionMessage);													
-						}
-						
-						this.checkIfNightIsOver();
-						return true;
-					}
-					else
-					{
-						gamer.player.sendMessage(this.chatPrefix + "Your character cannot perform that action");
-						return true;
-					}					
-				}	
-				else if (string.equalsIgnoreCase("pray"))
-				{
-					if (gamer.character.canPerformAction(CharacterAction.PRAY))
-					{
-						gamer.setActionPerformed();
-						gamer.player.sendMessage(this.chatPrefix + "You have prayed to the flying spaghetti monster asking him to protect " + targetPlayer.getName());
-
-						Random rng = new Random();
-						int ran = rng.nextInt(9) + 1;
-						
-						if (ran == 1)
-						{
-							// reveal role
-							this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " prayed for " + this.textColour + targetPlayer.getName() + "'s life. They were healed by divine intervention!" + actionMessage);																				
-							targetGamer.heal();
-						}
-						else
-						{
-							this.nightMessages.add(gamer.character.name + ChatColor.GREEN + " prayed for " + this.textColour + targetPlayer.getName() + "'s life. Sadly, nothing happened." + actionMessage);																				
-							
-						}
-						
-
-						this.checkIfNightIsOver();
-						return true;
-					}
-					else
-					{
-						gamer.player.sendMessage(this.chatPrefix + "Your character cannot perform that action");
-						return true;
-					}					
-				}					
 				else
 				{
-					gamer.player.sendMessage(this.chatPrefix + "What? I didn't understand that command");
-					return true;	
+					gamer.requestAction(action, targetGamer, actionMessage);
+					this.checkIfNightIsOver();
+					return;
 				}
+				
 			}
 			else
 			{
-				gamer.player.sendMessage(this.chatPrefix + "Error: You've already performed your action for tonight.");
-				return true;
+				gamer.player.sendMessage(ActivityMafia.chatPrefix + "Error: You've already performed your action for tonight.");
+				return;
 			}
 		}
 		else
 		{
-			gamer.player.sendMessage(this.chatPrefix + "Error: You can only perform actions at night!");
-			return true;
+			gamer.player.sendMessage(ActivityMafia.chatPrefix + "Error: You can only perform actions at night!");
+			return;
 			
 		}
 	}	
@@ -869,15 +753,13 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		this.discussTimeout = new DiscussionTimeout(this).runTaskLater(this, this.discussLength);
 		
 		/* Prepare for accusations */
-		this.accuseMap   = new HashMap<Gamer, Gamer>();
+		this.accuseMap         = new HashMap<Gamer, Gamer>();
 		this.accusationCounter = new HashMap<Gamer, Integer>();
 		
-		for (int i = 0; i < this.players.size(); i++)
+		for (Gamer gamer : this.players)
 		{
-			Gamer gamer = this.players.get(i);
 			if (gamer.isAlive())
 			{
-				// Create a zero score for the player in our vote counter
 				this.accusationCounter.put(gamer, new Integer(0));
 			}
 		}			
@@ -909,7 +791,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			Player targetPlayer = Bukkit.getPlayer(target);
 			if (targetPlayer == null)
 			{
-				gamer.player.sendMessage(this.chatPrefix + "Error: No such player!");
+				gamer.player.sendMessage(ActivityMafia.chatPrefix + "Error: No such player!");
 				return;
 			}
 			else
@@ -919,14 +801,14 @@ public class ActivityMafia extends JavaPlugin implements Listener
 				
 				if (targetGamer == null)
 				{
-					gamer.player.sendMessage(this.chatPrefix + "Error: That player isn't in the game!");
+					gamer.player.sendMessage(ActivityMafia.chatPrefix + "Error: That player isn't in the game!");
 					return;
 				}
 				
 				// make sure the target is alive...
 				if (!(targetGamer.isAlive()))
 				{
-					gamer.player.sendMessage(this.chatPrefix + "Error: That player is dead!");
+					gamer.player.sendMessage(ActivityMafia.chatPrefix + "Error: That player is dead!");
 					return;
 				}
 			}	
@@ -942,9 +824,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			{
 				getLogger().info(":: onPlayerAccuse: Player has already voted");
 
-				// They've already voted. 
-				// check if they're changing their vote
-				// if they're changing their vote, change it!
+				// They've already voted so change the vote if they have changed the target
 				if (previousTargetGamer != targetGamer)
 				{
 					getLogger().info(":: onPlayerAccuse: Reducing score of " + previousTargetGamer.player.getName());
@@ -962,7 +842,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 				}
 				else
 				{
-					// No vote to change!
+					// their vote target didnt change so return
 					return;
 				}
 			}
@@ -1041,9 +921,8 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			this.voteNo      = 0;
 			this.chosenGamer = gamer;
 				
-			for (int i = 0; i < players.size(); i++)
+			for (Gamer cgamer : this.players)
 			{
-				Gamer cgamer = players.get(i);
 				if (cgamer.isAlive())
 				{
 					this.board.resetScores(cgamer.player.getName());
@@ -1133,9 +1012,8 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		this.board.resetScores("no");
 		
 		
-		for (int i = 0; i < players.size(); i++)
+		for (Gamer cgamer : this.players)
 		{
-			Gamer cgamer = players.get(i);
 			if (cgamer.isAlive())
 			{
 				Score score = objective.getScore(cgamer.player.getName());
