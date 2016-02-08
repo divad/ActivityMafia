@@ -323,7 +323,6 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			else
 			{
 				Player player = (Player) sender;
-				getLogger().info("Player " + player.getName() + " sent command: " + String.join(" ", args));
 				
 				if (args.length > 0)
 				{
@@ -509,7 +508,6 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					gamer.character = this.characters.get(i);
 					gamer.player.sendMessage(ActivityMafia.chatPrefix + "You have been assigned the role of: " + ChatColor.YELLOW + gamer.character.getName());
 					//charactersString += " " + gamer.character.name;
-					getLogger().info("Player " + gamer.player.getName() + " was assigned role " + gamer.character.name);
 				}
 				
 				// Broadcast the characters who are in the game
@@ -657,9 +655,6 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	
 	private void onPlayerAction(Gamer gamer, String cmd, String[] args)
 	{
-        getLogger().info(":: onPlayerAction: Called by " + gamer.player.getName() + " with args: " + String.join(" ",args));
-
-		
 		if (this.gameStage == GameStage.NIGHT)
 		{
 			// Declare variables
@@ -778,8 +773,6 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	
 	public void onPlayerAccuse(Gamer gamer, String[] args)
 	{
-		getLogger().info(":: onPlayerAccuse: Accusation from " + gamer.player.getName() + " accusing: " + String.join("", args));
-
 		
 		if (this.gameStage == GameStage.NOMINATE)
 		{
@@ -816,19 +809,11 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			// Has this player already voted?
 			Gamer previousTargetGamer = this.accuseMap.get(gamer);
 			
-			if (previousTargetGamer == null)
+			if (previousTargetGamer != null)
 			{
-				getLogger().info(":: onPlayerAccuse: Player hasn't voted yet...");
-			}
-			else
-			{
-				getLogger().info(":: onPlayerAccuse: Player has already voted");
-
 				// They've already voted so change the vote if they have changed the target
 				if (previousTargetGamer != targetGamer)
 				{
-					getLogger().info(":: onPlayerAccuse: Reducing score of " + previousTargetGamer.player.getName());
-					
 					// Change the scoreboard view
 					// but only if the player is still alive (they could quit mid vote)
 					if (previousTargetGamer.isAlive())
@@ -846,8 +831,6 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					return;
 				}
 			}
-			
-			getLogger().info(":: onPlayerAccuse: Increasing score of " + targetGamer.player.getName());
 			
 			
 			// Change the scoreboard to show +1 votes on the target player
