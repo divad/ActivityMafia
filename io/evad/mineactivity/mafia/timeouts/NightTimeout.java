@@ -15,6 +15,7 @@ public class NightTimeout extends BukkitRunnable
 	@Override
 	public void run()
 	{
+		plugin.getLogger().info(":: NightTimeout run");
 		plugin.endNight();
 	}
 

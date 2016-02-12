@@ -11,6 +11,7 @@ public class Check extends CharacterAction
 	{
 		this.name = "check";
 		this.cmds = new String[] {"check", "whois", "investigate"};
+		this.canTargetSelf = false;
 	}
 	
 	public void doActionRequest(Gamer gamer, Gamer targetGamer)
@@ -20,8 +21,8 @@ public class Check extends CharacterAction
 	
 	public void doAction(Gamer gamer, Gamer targetGamer, String actionMessage, ActivityMafia mafia)
 	{
-		mafia.addNightMessage(gamer.character.name + ChatColor.GREEN + " checked out " + ActivityMafia.textColour + targetGamer.player.getName() + actionMessage);						
-		targetGamer.addNightMessageIfAlive(ActivityMafia.chatPrefix + ChatColor.GOLD + targetGamer.player.getName() + " is " + targetGamer.character.name);
+		//mafia.addNightMessage(gamer.character.name + ChatColor.GREEN + " checked out " + ActivityMafia.textColour + targetGamer.player.getName() + actionMessage);						
+		gamer.addNightMessageIfAlive(ActivityMafia.chatPrefix + ChatColor.GOLD + targetGamer.player.getName() + " is " + targetGamer.character.name);
 	}
 
 }

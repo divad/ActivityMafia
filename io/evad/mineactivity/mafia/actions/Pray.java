@@ -1,5 +1,7 @@
 package io.evad.mineactivity.mafia.actions;
 
+import java.util.Random;
+
 import org.bukkit.ChatColor;
 
 import io.evad.mineactivity.mafia.ActivityMafia;
@@ -9,8 +11,8 @@ public class Pray extends CharacterAction
 {
 	public Pray()
 	{
-		this.name = "kill";
-		this.cmds = new String[] {"kill", "murder", "shoot", "attack"};
+		this.name = "pray";
+		this.cmds = new String[] {"pray"};
 	}
 	
 	public void doActionRequest(Gamer gamer, Gamer targetGamer)
@@ -20,8 +22,18 @@ public class Pray extends CharacterAction
 	
 	public void doAction(Gamer gamer, Gamer targetGamer, String actionMessage, ActivityMafia mafia)
 	{
-		targetGamer.attack();
-		mafia.addNightMessage(gamer.character.name + ChatColor.YELLOW + " attacked " + ActivityMafia.textColour + targetGamer.player.getName() + actionMessage);
+		Random rng = new Random();
+		int ran = rng.nextInt(9);
 		
+		if (ran <= 1)
+		{
+			targetGamer.heal();			
+			mafia.addNightMessage(gamer.character.name + ChatColor.GREEN + " prayed for " + ActivityMafia.textColour + targetGamer.player.getName() + "'s life. They were healed by divine intervention!" + actionMessage);																				
+		}
+		else
+		{
+			mafia.addNightMessage(gamer.character.name + ChatColor.GREEN + " prayed for " + ActivityMafia.textColour + targetGamer.player.getName() + "'s life. Sadly, nothing happened." + actionMessage);																				
+			
+		}
 	}
 }

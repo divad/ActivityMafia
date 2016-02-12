@@ -15,6 +15,7 @@ public class DiscussionTimeout extends BukkitRunnable
 	@Override
 	public void run()
 	{
+		plugin.getLogger().info(":: DiscussionTimeout run");		
 		plugin.startNominations();
 	}
 

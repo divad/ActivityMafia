@@ -15,6 +15,7 @@ public class RegistrationTimeout extends BukkitRunnable
 	@Override
 	public void run()
 	{
+		plugin.getLogger().info(":: RegistrationTimeout run");		
 		plugin.startPreGame();
 	}
 

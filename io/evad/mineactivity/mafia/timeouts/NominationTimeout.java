@@ -15,6 +15,7 @@ public class NominationTimeout extends BukkitRunnable
 	@Override
 	public void run()
 	{
+		plugin.getLogger().info(":: NominationTimeout run");		
 		plugin.endNominations();
 	}
 

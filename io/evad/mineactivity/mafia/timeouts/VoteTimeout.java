@@ -15,6 +15,7 @@ public class VoteTimeout extends BukkitRunnable
 	@Override
 	public void run()
 	{
+		plugin.getLogger().info(":: VoteTimeout run");		
 		plugin.endVote();
 	}
 

@@ -23,6 +23,9 @@ public class Gamer
 	
 	private ArrayList<String> nightMessages = new ArrayList<String>();
 	private ArrayList<String> nightMessagesIfAlive = new ArrayList<String>();
+	
+	private boolean guarded = false;
+	public Gamer guardedBy = null;
 
 	
 	public Gamer(Player player)
@@ -63,6 +66,8 @@ public class Gamer
 		this.actionTarget = null;
 		this.actionBlocked = false;
 		this.action = null;
+		this.guarded = false;
+		this.guardedBy = null;
 		
 	}
 	
@@ -72,14 +77,25 @@ public class Gamer
 		this.action          = action;
 		this.actionMessage   = message;
 		this.actionTarget    = targetGamer;
-		action.doActionRequest(this, targetGamer);
+		action.doActionRequest(this, this.actionTarget);
 	}
 	
 	public void doAction(ActivityMafia mafia)
 	{
-		this.action.doAction(this, this.actionTarget, this.actionMessage, mafia);
+		// If this gamer has actually requested an action
+		if (this.actionPerformed)
+		{
+			// If they were not blocked this night
+			if (!this.actionBlocked)
+			{
+				this.action.doAction(this, this.actionTarget, this.actionMessage, mafia);
+			}
+			else
+			{
+				this.player.sendMessage(ActivityMafia.chatPrefix + "The jailor blocked you from taking your action by putting you in jail!");
+			}
+		}
 	}
-	
 	
 	public boolean hasPerformedAction()
 	{
@@ -109,6 +125,12 @@ public class Gamer
 		this.actionBlocked = true;
 	}
 	
+	public void guard(Gamer gamer)
+	{
+		this.guarded = true;
+		this.guardedBy = gamer;
+	}
+	
 	/* used to check if the player is alive at any time */
 	public boolean isAlive()
 	{
@@ -116,9 +138,9 @@ public class Gamer
 	}
 	
 	/* used to check if they were blocked from doing any actions */
-	public boolean actionNotBlocked()
+	public boolean actionBlocked() 
 	{
-		return !this.actionBlocked;
+		return this.actionBlocked;
 	}
 	
 	/* used if a player is put to death or the player is killed */
@@ -128,14 +150,19 @@ public class Gamer
 	}
 	
 	/* used to check if a player was murdered overnight */
-	public boolean isAliveAfterNight()
+	public boolean wasKilled()
 	{
 		if (this.health < 0)
 		{
-			this.alive = false;
+			return true;
 		}
 		
-		return this.alive;
+		return false;
+	}
+	
+	public boolean wasGuarded()
+	{
+		return this.guarded;
 	}
 
 }
