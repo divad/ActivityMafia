@@ -31,7 +31,7 @@ public class Love extends CharacterAction
 			// reveal role
 			mafia.addNightMessage(gamer.character.name + ChatColor.GREEN + " spent the night with " + ActivityMafia.textColour + targetGamer.player.getName() + ", who wakes up to a note saying 'I know who you are!'" + actionMessage);																				
 			gamer.addNightMessageIfAlive(ActivityMafia.chatPrefix + "In their sleep your partner mumbles details to identify them!");
-			gamer.addNightMessageIfAlive(ChatColor.GOLD + targetGamer.player.getName() + " is " + targetGamer.character.name);
+			gamer.addNightMessageIfAlive(ChatColor.GOLD + targetGamer.player.getName() + " is " + targetGamer.character.getName());
 		}
 		else if (ran == 2)
 		{

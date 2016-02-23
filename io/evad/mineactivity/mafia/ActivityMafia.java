@@ -33,7 +33,7 @@ import io.evad.mineactivity.mafia.timeouts.*;
  * TODO:
  * new engine
  * make it so that suicides in vote/accuse removes them from stuff
- * moar players
+ * moar gamers
  * moar roles
  * double mafia
  */
@@ -41,8 +41,8 @@ import io.evad.mineactivity.mafia.timeouts.*;
 public class ActivityMafia extends JavaPlugin implements Listener 
 {
 	private GameStage gameStage           = GameStage.NONE;
-	private final int maxPlayers          = 10;  // we only support 10 in the code atm
-	private final int registrationTimeout = 1200; // 1200 is 60 seconds. 
+	private final int maxPlayers          = 15; 
+	private final int registrationTimeout = 1600; // 1200 is 60 seconds. 
 	private final int nightLength         = 1000; // 2 minutes
 	private final int discussLength       = 500; // 1 minute is 1200
 	private final int nominateLength      = 1000; // 1 minute is 1200
@@ -57,8 +57,8 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	// night time log
 	private ArrayList<String> nightMessages = new ArrayList<String>();
 	
-	/* list of players who registered, even if they died or went offline */
-	public ArrayList<Gamer> players = new ArrayList<Gamer>();
+	/* list of gamers who registered, even if they died or went offline */
+	public ArrayList<Gamer> gamers = new ArrayList<Gamer>();
 	
 	/* list of characters */
 	public ArrayList <MafiaCharacter> characters = new ArrayList<MafiaCharacter>();
@@ -99,13 +99,18 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		characters.add(new Citizen());
 		characters.add(new Mafia());
 		characters.add(new Detective());
-		characters.add(new Bodyguard());
 		characters.add(new Doctor());
 		characters.add(new Streetwalker());
+		characters.add(new DoubleAgent());
+		characters.add(new Bodyguard());
+		characters.add(new Jailor());		
 		characters.add(new Maniac());
-		characters.add(new Jailor());
-		characters.add(new Citizen());
 		characters.add(new Streetwalker());
+		characters.add(new Citizen());
+		characters.add(new Mafia());
+		characters.add(new Doctor());
+		characters.add(new Citizen());		
+		characters.add(new Maniac());
 		
 		getLogger().info("Plugin initalised successfully");
 	}
@@ -141,7 +146,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
     	
         if (!(this.gameStage == GameStage.NONE))
         {
-       		Iterator<Gamer> i = this.players.iterator();
+       		Iterator<Gamer> i = this.gamers.iterator();
         		
        		while (i.hasNext())
        		{
@@ -150,7 +155,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
        			{
        	        	if (this.gameStage == GameStage.REGISTER)
        	        	{
-       	        		// remove them from the list of players
+       	        		// remove them from the list of gamers
        	        		i.remove();
        	        		
        	        		// remove them from the scoreboard
@@ -183,7 +188,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	       	        				}
 	       	        			}
 	       	        			
-	       	        			// TODO handle removing votes for players, if any, during accuse stage
+	       	        			// TODO handle removing votes for gamers, if any, during accuse stage
 	       	        		}
        	        		}    	        		
        	        	}
@@ -240,7 +245,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		}
 		
 		/* count members of each team */
-		for (Gamer gamer : this.players)
+		for (Gamer gamer : this.gamers)
 		{
 			if (gamer.isAlive())
 			{
@@ -263,17 +268,22 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		}
 		else if (town == 0 && mafia > 0 && maniac == 0)
 		{
-			this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The mafia won! Emperor Palpatine is pleased.");
+			this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The mafia won!");
 			end = true;
 		}
+		else if (town == 1 && mafia == 2)
+		{
+			this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The mafia won!");
+			end = true;
+		}		
 		else if (town == 0 && mafia == 0 && maniac > 0)
 		{
-			this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The maniac won! The maniac soon begins to feel lonely and sad.");
+			this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The maniac won!");
 			end = true;
 		}
 		else if (town == 0 && mafia == 0 && maniac == 0)
 		{
-			this.messageAllPlayers(ActivityMafia.winAnnounceColour + "Everybody is dead. Herobrine won!");
+			this.messageAllPlayers(ActivityMafia.winAnnounceColour + "Everybody is dead. Herobrine wins!");
 			end = true;
 		}
 		else if (playersAlive == 2)
@@ -282,15 +292,15 @@ public class ActivityMafia extends JavaPlugin implements Listener
 
 			if (mafia > 0 && maniac <= 0)
 			{
-				this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The mafia won! Khan is pleased. The Mafia turns the last townsperson evil.");
+				this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The mafia won!");
 			}
 			else if (maniac > 0 && mafia <= 0)
 			{
-				this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The maniac won! They copulate with the last townsperson and have maniac babies");
+				this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The maniac won!");
 			}
 			else
 			{
-				this.messageAllPlayers(ActivityMafia.winAnnounceColour + "Only the mafia and the maniac survive! They eye each other suspiciously. #nohomo");
+				this.messageAllPlayers(ActivityMafia.winAnnounceColour + "The mania and mafia both win!");
 			}
 		}
 		
@@ -319,13 +329,13 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			
 			this.gameStage = GameStage.NONE;
 			
-			// Remove all scoreboards from players
+			// Remove all scoreboards from gamers
 			// and print out who was what
-			for (Gamer gamer : this.players)
+			for (Gamer gamer : this.gamers)
 			{
 				if (gamer.isAlive())
 				{
-					this.messageAllPlayers(gamer.player.getName() + " was: " + gamer.character.getName());
+					this.messageAllPlayers(gamer.player.getName() + " was: " + gamer.character.name);
 				}				
 				
 				if (gamer.player.isOnline())
@@ -367,7 +377,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 					{
 						// Find the gamer object for this player
 						Gamer gamer = null;
-						for (Gamer cgamer : this.players)
+						for (Gamer cgamer : this.gamers)
 						{
 							if (cgamer.player == player)
 							{
@@ -448,8 +458,8 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			}
 			else
 			{
-				// Block players who have joined already
-				for (Gamer gamer : this.players)
+				// Block gamers who have joined already
+				for (Gamer gamer : this.gamers)
 				{
 					if (gamer.player == player)
 					{
@@ -460,15 +470,15 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			}
 			
 			// Add the player
-			this.players.add(new Gamer(player));
+			this.gamers.add(new Gamer(player));
 			player.sendMessage(ActivityMafia.chatPrefix + "You have joined the game, please wait for it to start.");
 			
 			Score score = this.objective.getScore(player.getName());
 			score.setScore(0);
 			player.setScoreboard(this.board);		
 			
-			// If we've hit max players then start the game immediatley 
-			if (this.players.size() >= this.maxPlayers)
+			// If we've hit max gamers then start the game immediatley 
+			if (this.gamers.size() >= this.maxPlayers)
 			{
 				this.startPreGame();
 			}
@@ -490,7 +500,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	{
 		getLogger().info(":: startRegister");
 		
-		this.players = new ArrayList<Gamer>();
+		this.gamers = new ArrayList<Gamer>();
 		this.wipeScoreboard();
 		this.gameStage = GameStage.REGISTER;
 		Bukkit.broadcastMessage(ActivityMafia.chatPrefix + "Mafia is about to begin! To join type /z join and then type /rp to chat.");
@@ -510,26 +520,26 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		// Make sure we're still in register phase before we end it!
 		if (this.gameStage == GameStage.REGISTER)
 		{
-			if (this.players.size() <= 3)
+			if (this.gamers.size() <= 3)
 			{
-				for (Gamer gamer : this.players)
+				for (Gamer gamer : this.gamers)
 				{
-					gamer.player.sendMessage(ActivityMafia.chatPrefix + "Not enough players joined the game, sorry!");
+					gamer.player.sendMessage(ActivityMafia.chatPrefix + "Not enough gamers joined the game, sorry!");
 					gamer.player.setScoreboard(this.manager.getMainScoreboard());
 					this.wipeScoreboard();
 				}
 				
 				
 				this.gameStage = GameStage.NONE;
-				this.players = new ArrayList<Gamer>();
+				this.gamers = new ArrayList<Gamer>();
 			}
 			else
 			{
 				this.gameStage = GameStage.PRE_GAME;
 				
-				// shuffle the order of the players who joined into roles
+				// shuffle the order of the gamers who joined into roles
 				ArrayList<Gamer> roles = new ArrayList<Gamer>();
-				for (Gamer gamer : this.players)
+				for (Gamer gamer : this.gamers)
 				{
 					roles.add(gamer);
 				}
@@ -539,7 +549,6 @@ public class ActivityMafia extends JavaPlugin implements Listener
 				Collections.shuffle(roles);
 				Collections.shuffle(roles);
 				
-				
 				//String charactersString = "Characters:";
 				
 				// Assign roles
@@ -547,8 +556,16 @@ public class ActivityMafia extends JavaPlugin implements Listener
 				{
 					Gamer gamer     = roles.get(i);
 					gamer.character = this.characters.get(i);
-					gamer.player.sendMessage(ActivityMafia.chatPrefix + "You have been assigned the role of: " + ChatColor.YELLOW + gamer.character.getName());
+					gamer.player.sendMessage(ActivityMafia.chatPrefix + "You have been assigned the role of: " + ChatColor.YELLOW + gamer.character.name);
+					
 					//charactersString += " " + gamer.character.name;
+				}
+				
+				// Do team notifications 
+				for (Gamer gamer : this.gamers)
+				{
+					// some characters tell other characters who they are
+					gamer.character.informOtherPlayersOfRole(gamer, this.gamers);
 				}
 				
 				// Broadcast the characters who are in the game
@@ -570,7 +587,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	{
 		getLogger().info(":: messageAllPlayers");
 		
-		for (Gamer gamer : this.players)
+		for (Gamer gamer : this.gamers)
 		{
 			gamer.player.sendMessage(ActivityMafia.chatPrefix + message);
 		}		
@@ -583,7 +600,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	{
 		getLogger().info(":: getGamerByPlayer");
 		
-		for (Gamer gamer : this.players)
+		for (Gamer gamer : this.gamers)
 		{
 			if (gamer.player == player)
 			{
@@ -605,7 +622,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		this.gameStage = GameStage.NIGHT;
 		this.messageAllPlayers("It is now NIGHT");
 		
-		for (Gamer gamer : this.players)
+		for (Gamer gamer : this.gamers)
 		{
 			if (gamer.isAlive())
 			{
@@ -628,7 +645,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 	{
 		getLogger().info(":: checkIfNightIsOver");
 		
-		for (Gamer gamer : this.players)
+		for (Gamer gamer : this.gamers)
 		{
 			if (gamer.isAlive())
 			{
@@ -658,8 +675,8 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			this.gameStage = GameStage.END_NIGHT;
 			
 			
-			// Do the actions requested by players in the night
-			for (Gamer gamer : this.players)
+			// Do the actions requested by gamers in the night
+			for (Gamer gamer : this.gamers)
 			{
 				if (gamer.isAlive())
 				{
@@ -684,8 +701,8 @@ public class ActivityMafia extends JavaPlugin implements Listener
 				this.messageAllPlayers(message);
 			}		
 			
-			// process players and their deaths
-			for (Gamer gamer : this.players)
+			// process gamers and their deaths
+			for (Gamer gamer : this.gamers)
 			{
 				if (gamer.isAlive())
 				{
@@ -830,7 +847,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		this.accuseMap         = new HashMap<Gamer, Gamer>();
 		this.accusationCounter = new HashMap<Gamer, Integer>();
 		
-		for (Gamer gamer : this.players)
+		for (Gamer gamer : this.gamers)
 		{
 			if (gamer.isAlive())
 			{
@@ -847,7 +864,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		{
 			this.discussTimeout = null;
 			this.gameStage = GameStage.NOMINATE;
-			this.messageAllPlayers("You may now nominate players to be put to death with /z accuse <name>");
+			this.messageAllPlayers("You may now nominate gamers to be put to death with /z accuse <name>");
 			this.nominateTimeout = new NominationTimeout(this).runTaskLater(this, this.nominateLength);
 		}
 	}
@@ -997,7 +1014,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 			this.voteNo      = 0;
 			this.chosenGamer = gamer;
 				
-			for (Gamer cgamer : this.players)
+			for (Gamer cgamer : this.gamers)
 			{
 				if (cgamer.isAlive())
 				{
@@ -1096,7 +1113,7 @@ public class ActivityMafia extends JavaPlugin implements Listener
 		this.board.resetScores("no");
 		
 		
-		for (Gamer cgamer : this.players)
+		for (Gamer cgamer : this.gamers)
 		{
 			if (cgamer.isAlive())
 			{

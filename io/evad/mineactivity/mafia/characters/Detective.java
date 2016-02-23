@@ -9,6 +9,6 @@ public class Detective extends MafiaCharacter
 		this.name    = "Detective";
 		this.actions = new CharacterAction[] {new Kill(), new Check()};
 		this.team    = MafiaTeam.TOWN;
-		this.desc    = "You role is to hunt the mafia. Do /z check <target> to check a players role or /z kill <target> to kill.";
+		this.desc    = "You role is to hunt the mafia. Do /z check <target> to check a gamers role or /z kill <target> to kill.";
 	}
 }

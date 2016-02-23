@@ -1,5 +1,8 @@
 package io.evad.mineactivity.mafia.characters;
 
+import java.util.ArrayList;
+
+import io.evad.mineactivity.mafia.Gamer;
 import io.evad.mineactivity.mafia.actions.CharacterAction;
 import io.evad.mineactivity.mafia.enums.MafiaTeam;
 
@@ -41,5 +44,9 @@ public abstract class MafiaCharacter
 		{
 			return true;
 		}
+	}
+	
+	public void informOtherPlayersOfRole(Gamer gamer, ArrayList<Gamer> gamers)
+	{
 	}
 }
